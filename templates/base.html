@@ -20,8 +20,7 @@
         </span>
       </a>
       <nav class="nav">
-        <a href="{{ url_for('index') }}">All knowledge</a>
-        <a class="btn" href="{{ url_for('add') }}">Add entry</a>
+        <a class="btn" href="{{ url_for('add', type=type_key if type_key is defined else 'new_words') }}">Add entry</a>
       </nav>
     </header>
 

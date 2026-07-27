@@ -13,149 +13,126 @@ def ensure_db() -> None:
     db.init_db()
 
 
+def _form_payload(type_key: str) -> dict[str, str]:
+    meta = db.TYPES[type_key]
+    payload = {field: request.form.get(field, "").strip() for field in meta["fields"]}
+    if payload.get("cefr_level") not in db.CEFR_LEVELS:
+        payload["cefr_level"] = "B1"
+    return payload
+
+
+def _missing_required(type_key: str, payload: dict[str, str]) -> bool:
+    return any(not payload.get(field) for field in db.TYPES[type_key]["required"])
+
+
 @app.get("/")
 def index():
+    type_key = db.ensure_type(request.args.get("type", db.DEFAULT_TYPE).strip())
     q = request.args.get("q", "").strip()
-    category = request.args.get("category", "").strip()
     cefr_level = request.args.get("cefr_level", "").strip()
 
-    entries = db.list_entries(q=q, category=category, cefr_level=cefr_level)
+    entries = db.list_entries(type_key, q=q, cefr_level=cefr_level)
     stats = db.progress_stats()
+    meta = db.TYPES[type_key]
+
     return render_template(
         "index.html",
+        type_key=type_key,
+        meta=meta,
+        types=db.TYPES,
+        type_order=db.TYPE_ORDER,
         entries=entries,
         stats=stats,
         q=q,
-        category=category,
         cefr_level=cefr_level,
-        categories=db.CATEGORIES,
         levels=db.CEFR_LEVELS,
     )
 
 
 @app.route("/add", methods=["GET", "POST"])
 def add():
-    if request.method == "POST":
-        title = request.form.get("title", "").strip()
-        meaning = request.form.get("meaning", "").strip()
-        example = request.form.get("example", "").strip()
-        notes = request.form.get("notes", "").strip()
-        category = request.form.get("category", "vocabulary").strip()
-        cefr_level = request.form.get("cefr_level", "B1").strip()
+    type_key = db.ensure_type(
+        (request.args.get("type") or request.form.get("type") or db.DEFAULT_TYPE).strip()
+    )
+    meta = db.TYPES[type_key]
 
-        if not title or not meaning:
-            flash("Title and meaning are required.", "error")
+    if request.method == "POST":
+        payload = _form_payload(type_key)
+        if _missing_required(type_key, payload):
+            flash("Please fill in the required fields.", "error")
             return render_template(
                 "form.html",
                 mode="add",
-                entry={
-                    "title": title,
-                    "meaning": meaning,
-                    "example": example,
-                    "notes": notes,
-                    "category": category,
-                    "cefr_level": cefr_level,
-                },
-                categories=db.CATEGORIES,
+                type_key=type_key,
+                meta=meta,
+                types=db.TYPES,
+                type_order=db.TYPE_ORDER,
+                entry=payload,
                 levels=db.CEFR_LEVELS,
             )
 
-        if category not in db.CATEGORIES:
-            category = "other"
-        if cefr_level not in db.CEFR_LEVELS:
-            cefr_level = "B1"
-
-        db.add_entry(
-            title=title,
-            meaning=meaning,
-            example=example,
-            notes=notes,
-            category=category,
-            cefr_level=cefr_level,
-        )
-        flash("Saved to your B2 knowledge base.", "ok")
-        return redirect(url_for("index"))
+        db.add_entry(type_key, **payload)
+        flash(f"Saved to {meta['label']}.", "ok")
+        return redirect(url_for("index", type=type_key))
 
     return render_template(
         "form.html",
         mode="add",
-        entry={
-            "title": "",
-            "meaning": "",
-            "example": "",
-            "notes": "",
-            "category": "vocabulary",
-            "cefr_level": "B1",
-        },
-        categories=db.CATEGORIES,
+        type_key=type_key,
+        meta=meta,
+        types=db.TYPES,
+        type_order=db.TYPE_ORDER,
+        entry=db.empty_form(type_key),
         levels=db.CEFR_LEVELS,
     )
 
 
-@app.route("/edit/<int:entry_id>", methods=["GET", "POST"])
-def edit(entry_id: int):
-    entry = db.get_entry(entry_id)
+@app.route("/edit/<type_key>/<int:entry_id>", methods=["GET", "POST"])
+def edit(type_key: str, entry_id: int):
+    type_key = db.ensure_type(type_key)
+    meta = db.TYPES[type_key]
+    entry = db.get_entry(type_key, entry_id)
     if entry is None:
         flash("Entry not found.", "error")
-        return redirect(url_for("index"))
+        return redirect(url_for("index", type=type_key))
 
     if request.method == "POST":
-        title = request.form.get("title", "").strip()
-        meaning = request.form.get("meaning", "").strip()
-        example = request.form.get("example", "").strip()
-        notes = request.form.get("notes", "").strip()
-        category = request.form.get("category", "vocabulary").strip()
-        cefr_level = request.form.get("cefr_level", "B1").strip()
-
-        if not title or not meaning:
-            flash("Title and meaning are required.", "error")
+        payload = _form_payload(type_key)
+        if _missing_required(type_key, payload):
+            flash("Please fill in the required fields.", "error")
             return render_template(
                 "form.html",
                 mode="edit",
-                entry={
-                    "id": entry_id,
-                    "title": title,
-                    "meaning": meaning,
-                    "example": example,
-                    "notes": notes,
-                    "category": category,
-                    "cefr_level": cefr_level,
-                },
-                categories=db.CATEGORIES,
+                type_key=type_key,
+                meta=meta,
+                types=db.TYPES,
+                type_order=db.TYPE_ORDER,
+                entry={"id": entry_id, **payload},
                 levels=db.CEFR_LEVELS,
             )
 
-        if category not in db.CATEGORIES:
-            category = "other"
-        if cefr_level not in db.CEFR_LEVELS:
-            cefr_level = "B1"
-
-        db.update_entry(
-            entry_id,
-            title=title,
-            meaning=meaning,
-            example=example,
-            notes=notes,
-            category=category,
-            cefr_level=cefr_level,
-        )
+        db.update_entry(type_key, entry_id, **payload)
         flash("Entry updated.", "ok")
-        return redirect(url_for("index"))
+        return redirect(url_for("index", type=type_key))
 
     return render_template(
         "form.html",
         mode="edit",
+        type_key=type_key,
+        meta=meta,
+        types=db.TYPES,
+        type_order=db.TYPE_ORDER,
         entry=entry,
-        categories=db.CATEGORIES,
         levels=db.CEFR_LEVELS,
     )
 
 
-@app.post("/delete/<int:entry_id>")
-def delete(entry_id: int):
-    db.delete_entry(entry_id)
+@app.post("/delete/<type_key>/<int:entry_id>")
+def delete(type_key: str, entry_id: int):
+    type_key = db.ensure_type(type_key)
+    db.delete_entry(type_key, entry_id)
     flash("Entry deleted.", "ok")
-    return redirect(url_for("index"))
+    return redirect(url_for("index", type=type_key))
 
 
 if __name__ == "__main__":

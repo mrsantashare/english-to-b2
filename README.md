@@ -2,7 +2,15 @@
 
 Personal knowledge base for your path to **B2 English**.
 
-Store vocabulary, phrases, idioms, grammar notes, and examples in a local SQLite database, then browse and filter them in a simple web app.
+Five tabs — each backed by its own SQLite table:
+
+| Tab | Table | What goes here |
+|-----|-------|----------------|
+| New words | `new_words` | Vocabulary |
+| Verb phrases | `verb_phrases` | Phrasal verbs / verb phrases |
+| Sentence structure | `sentence_structures` | Grammar patterns |
+| Dialog | `dialogs` | Short conversations |
+| Paragraph | `paragraphs` | Longer writing samples |
 
 ## Run
 
@@ -15,4 +23,8 @@ python app.py
 
 Open [http://127.0.0.1:5050](http://127.0.0.1:5050).
 
-Your data is saved in `data/english_to_b2.db`.
+Data file: `data/english_to_b2.db`.
+
+## Note workflow
+
+Paste your study notes in chat. They will be classified into the five types above and saved into the matching table/tab.
