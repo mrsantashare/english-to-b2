@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}{% if mode == 'edit' %}Edit{% else %}Add{% endif %} · English to B2{% endblock %}
+
+{% block content %}
+<section class="form-shell">
+  <h1>{% if mode == 'edit' %}Edit entry{% else %}Add to your B2 knowledge{% endif %}</h1>
+  <p class="lede">Capture what you learned today so you can review it later.</p>
+
+  <form method="post" class="entry-form">
+    <label>
+      <span>Title / word / phrase</span>
+      <input name="title" required value="{{ entry.title }}" placeholder="e.g. nevertheless">
+    </label>
+    <label>
+      <span>Meaning</span>
+      <textarea name="meaning" required rows="3" placeholder="What it means in English or Vietnamese">{{ entry.meaning }}</textarea>
+    </label>
+    <label>
+      <span>Example sentence</span>
+      <textarea name="example" rows="2" placeholder="I was tired; nevertheless, I finished the essay.">{{ entry.example }}</textarea>
+    </label>
+    <label>
+      <span>Notes</span>
+      <textarea name="notes" rows="2" placeholder="Tips, collocations, mistakes to avoid…">{{ entry.notes }}</textarea>
+    </label>
+    <div class="row">
+      <label>
+        <span>Category</span>
+        <select name="category">
+          {% for item in categories %}
+            <option value="{{ item }}" {% if entry.category == item %}selected{% endif %}>{{ item }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        <span>CEFR level</span>
+        <select name="cefr_level">
+          {% for level in levels %}
+            <option value="{{ level }}" {% if entry.cefr_level == level %}selected{% endif %}>{{ level }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="form-actions">
+      <a href="{{ url_for('index') }}">Cancel</a>
+      <button class="btn" type="submit">{% if mode == 'edit' %}Save changes{% else %}Save entry{% endif %}</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

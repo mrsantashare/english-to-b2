@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero">
+  <div>
+    <p class="eyebrow">Path to B2</p>
+    <h1>Everything you’ve learned, in one place.</h1>
+    <p class="lede">Save vocabulary, phrases, idioms, and grammar as you study. Filter by CEFR level and keep building toward B2.</p>
+  </div>
+  <aside class="stats" aria-label="Progress toward B2">
+    <div class="stat-main">
+      <span class="stat-number">{{ stats.total }}</span>
+      <span class="stat-label">total entries</span>
+    </div>
+    <ul class="level-bars">
+      {% for level in levels %}
+        <li>
+          <span>{{ level }}</span>
+          <div class="bar" style="--n: {{ stats.by_level[level] }}; --max: {{ [stats.total, 1]|max }}">
+            <i style="width: calc({{ stats.by_level[level] }} / {{ [stats.total, 1]|max }} * 100%)"></i>
+          </div>
+          <strong>{{ stats.by_level[level] }}</strong>
+        </li>
+      {% endfor %}
+    </ul>
+  </aside>
+</section>
+
+<form class="filters" method="get" action="{{ url_for('index') }}">
+  <label>
+    <span>Search</span>
+    <input type="search" name="q" value="{{ q }}" placeholder="word, meaning, example…">
+  </label>
+  <label>
+    <span>Category</span>
+    <select name="category">
+      <option value="">All</option>
+      {% for item in categories %}
+        <option value="{{ item }}" {% if category == item %}selected{% endif %}>{{ item }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>
+    <span>CEFR</span>
+    <select name="cefr_level">
+      <option value="">All</option>
+      {% for level in levels %}
+        <option value="{{ level }}" {% if cefr_level == level %}selected{% endif %}>{{ level }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button type="submit">Show</button>
+</form>
+
+{% if entries %}
+  <section class="knowledge-list" aria-label="Knowledge entries">
+    {% for entry in entries %}
+      <article class="entry">
+        <header>
+          <h2>{{ entry.title }}</h2>
+          <div class="tags">
+            <span class="tag level-{{ entry.cefr_level }}">{{ entry.cefr_level }}</span>
+            <span class="tag">{{ entry.category }}</span>
+          </div>
+        </header>
+        <p class="meaning">{{ entry.meaning }}</p>
+        {% if entry.example %}
+          <p class="example"><span>Example</span> {{ entry.example }}</p>
+        {% endif %}
+        {% if entry.notes %}
+          <p class="notes">{{ entry.notes }}</p>
+        {% endif %}
+        <footer>
+          <time datetime="{{ entry.created_at }}">{{ entry.created_at }}</time>
+          <div class="actions">
+            <a href="{{ url_for('edit', entry_id=entry.id) }}">Edit</a>
+            <form method="post" action="{{ url_for('delete', entry_id=entry.id) }}" onsubmit="return confirm('Delete this entry?');">
+              <button type="submit" class="linkish">Delete</button>
+            </form>
+          </div>
+        </footer>
+      </article>
+    {% endfor %}
+  </section>
+{% else %}
+  <section class="empty">
+    <h2>No entries yet</h2>
+    <p>Start your B2 path by adding the first word, phrase, or grammar note.</p>
+    <a class="btn" href="{{ url_for('add') }}">Add first entry</a>
+  </section>
+{% endif %}
+{% endblock %}
