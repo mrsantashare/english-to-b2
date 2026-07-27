@@ -1,5 +1,8 @@
 .venv/
 __pycache__/
 *.pyc
-data/
 .DS_Store
+
+# Keep the SQLite knowledge base in git; ignore other local data files.
+data/*
+!data/english_to_b2.db

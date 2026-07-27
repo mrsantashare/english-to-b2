@@ -23,7 +23,7 @@ python app.py
 
 Open [http://127.0.0.1:5050](http://127.0.0.1:5050).
 
-Data file: `data/english_to_b2.db`.
+Data file: `data/english_to_b2.db` (tracked in git so notes sync across computers).
 
 ## Note workflow
 
