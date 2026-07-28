@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 import sqlite3
 from pathlib import Path
 from typing import Any
@@ -10,6 +11,8 @@ DB_PATH = DATA_DIR / "english_to_b2.db"
 SCHEMA_PATH = ROOT / "schema.sql"
 
 CEFR_LEVELS = ("A1", "A2", "B1", "B2")
+DEFAULT_COURSE_LEVEL = 13
+PRACTICE_TYPES = ("new_words", "verb_phrases", "sentence_structures")
 
 # Each tab key maps to one SQLite table and its primary display fields.
 TYPES: dict[str, dict[str, Any]] = {
@@ -19,8 +22,9 @@ TYPES: dict[str, dict[str, Any]] = {
         "singular": "new word",
         "title_field": "word",
         "body_field": "meaning",
-        "fields": ("word", "meaning", "example", "notes", "cefr_level"),
+        "fields": ("word", "meaning", "example", "notes", "cefr_level", "level"),
         "required": ("word", "meaning"),
+        "has_practice": True,
     },
     "verb_phrases": {
         "table": "verb_phrases",
@@ -28,8 +32,9 @@ TYPES: dict[str, dict[str, Any]] = {
         "singular": "verb phrase",
         "title_field": "phrase",
         "body_field": "meaning",
-        "fields": ("phrase", "meaning", "example", "notes", "cefr_level"),
+        "fields": ("phrase", "meaning", "example", "notes", "cefr_level", "level"),
         "required": ("phrase", "meaning"),
+        "has_practice": True,
     },
     "sentence_structures": {
         "table": "sentence_structures",
@@ -37,8 +42,9 @@ TYPES: dict[str, dict[str, Any]] = {
         "singular": "sentence structure",
         "title_field": "pattern",
         "body_field": "explanation",
-        "fields": ("pattern", "explanation", "example", "notes", "cefr_level"),
+        "fields": ("pattern", "explanation", "example", "notes", "cefr_level", "level"),
         "required": ("pattern", "explanation"),
+        "has_practice": True,
     },
     "dialogs": {
         "table": "dialogs",
@@ -46,8 +52,9 @@ TYPES: dict[str, dict[str, Any]] = {
         "singular": "dialog",
         "title_field": "title",
         "body_field": "content",
-        "fields": ("title", "content", "notes", "cefr_level"),
+        "fields": ("title", "content", "notes", "cefr_level", "level"),
         "required": ("title", "content"),
+        "has_practice": False,
     },
     "paragraphs": {
         "table": "paragraphs",
@@ -55,8 +62,9 @@ TYPES: dict[str, dict[str, Any]] = {
         "singular": "paragraph",
         "title_field": "title",
         "body_field": "content",
-        "fields": ("title", "content", "notes", "cefr_level"),
+        "fields": ("title", "content", "notes", "cefr_level", "level"),
         "required": ("title", "content"),
+        "has_practice": False,
     },
 }
 
@@ -72,9 +80,41 @@ def get_connection() -> sqlite3.Connection:
     return conn
 
 
+def _table_columns(conn: sqlite3.Connection, table: str) -> set[str]:
+    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+    return {row["name"] for row in rows}
+
+
+def _migrate_schema(conn: sqlite3.Connection) -> None:
+    """Add level / practice_count to existing DBs created before those columns."""
+    for key, meta in TYPES.items():
+        table = meta["table"]
+        cols = _table_columns(conn, table)
+        if not cols:
+            continue
+        if "level" not in cols:
+            conn.execute(
+                f"ALTER TABLE {table} ADD COLUMN level INTEGER NOT NULL DEFAULT {DEFAULT_COURSE_LEVEL}"
+            )
+        if meta.get("has_practice") and "practice_count" not in cols:
+            conn.execute(
+                f"ALTER TABLE {table} ADD COLUMN practice_count INTEGER NOT NULL DEFAULT 0"
+            )
+        # Ensure existing rows have a concrete course level.
+        conn.execute(
+            f"UPDATE {table} SET level = ? WHERE level IS NULL OR level = 0",
+            (DEFAULT_COURSE_LEVEL,),
+        )
+        conn.execute(
+            f"CREATE INDEX IF NOT EXISTS idx_{table}_level ON {table}(level)"
+        )
+
+
 def init_db() -> None:
     with get_connection() as conn:
         conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
+        _migrate_schema(conn)
+        conn.commit()
 
 
 def clear_all_data() -> None:
@@ -91,7 +131,21 @@ def ensure_type(type_key: str) -> str:
     return DEFAULT_TYPE
 
 
-def list_entries(type_key: str, *, q: str = "", cefr_level: str = "") -> list[sqlite3.Row]:
+def parse_level(value: Any, default: int = DEFAULT_COURSE_LEVEL) -> int:
+    try:
+        level = int(value)
+    except (TypeError, ValueError):
+        return default
+    return level if level > 0 else default
+
+
+def list_entries(
+    type_key: str,
+    *,
+    q: str = "",
+    cefr_level: str = "",
+    level: str | int | None = "",
+) -> list[sqlite3.Row]:
     type_key = ensure_type(type_key)
     meta = TYPES[type_key]
     table = meta["table"]
@@ -114,6 +168,10 @@ def list_entries(type_key: str, *, q: str = "", cefr_level: str = "") -> list[sq
         sql += " AND cefr_level = ?"
         params.append(cefr_level)
 
+    if level not in ("", None):
+        sql += " AND level = ?"
+        params.append(parse_level(level))
+
     sql += " ORDER BY datetime(created_at) DESC, id DESC"
 
     with get_connection() as conn:
@@ -130,6 +188,16 @@ def get_entry(type_key: str, entry_id: int) -> sqlite3.Row | None:
         ).fetchone()
 
 
+def distinct_levels() -> list[int]:
+    levels: set[int] = set()
+    with get_connection() as conn:
+        for meta in TYPES.values():
+            for row in conn.execute(f"SELECT DISTINCT level FROM {meta['table']}"):
+                if row["level"] is not None:
+                    levels.add(int(row["level"]))
+    return sorted(levels)
+
+
 def _normalize_payload(type_key: str, data: dict[str, Any]) -> dict[str, Any]:
     meta = TYPES[type_key]
     payload: dict[str, Any] = {}
@@ -137,6 +205,9 @@ def _normalize_payload(type_key: str, data: dict[str, Any]) -> dict[str, Any]:
         value = data.get(field, "")
         if value is None:
             value = ""
+        if field == "level":
+            payload[field] = parse_level(value)
+            continue
         if isinstance(value, str):
             value = value.strip()
         payload[field] = value
@@ -191,6 +262,74 @@ def delete_entry(type_key: str, entry_id: int) -> None:
         conn.commit()
 
 
+def increment_practice_count(type_key: str, entry_id: int) -> int:
+    type_key = ensure_type(type_key)
+    if type_key not in PRACTICE_TYPES:
+        raise ValueError(f"{type_key} does not support practice_count")
+    table = TYPES[type_key]["table"]
+    with get_connection() as conn:
+        conn.execute(
+            f"""
+            UPDATE {table}
+            SET practice_count = practice_count + 1,
+                updated_at = datetime('now', 'localtime')
+            WHERE id = ?
+            """,
+            (entry_id,),
+        )
+        conn.commit()
+        row = conn.execute(
+            f"SELECT practice_count FROM {table} WHERE id = ?",
+            (entry_id,),
+        ).fetchone()
+        return int(row["practice_count"]) if row else 0
+
+
+def random_practice_item(
+    *,
+    level: str | int | None = "",
+    cefr_level: str = "",
+    exclude: list[tuple[str, int]] | None = None,
+) -> dict[str, Any] | None:
+    """Pick one random practiceable entry matching filters."""
+    exclude_set = {(t, i) for t, i in (exclude or [])}
+    candidates: list[dict[str, Any]] = []
+
+    with get_connection() as conn:
+        for type_key in PRACTICE_TYPES:
+            meta = TYPES[type_key]
+            table = meta["table"]
+            sql = f"SELECT * FROM {table} WHERE 1=1"
+            params: list[Any] = []
+            if cefr_level:
+                sql += " AND cefr_level = ?"
+                params.append(cefr_level)
+            if level not in ("", None):
+                sql += " AND level = ?"
+                params.append(parse_level(level))
+            for row in conn.execute(sql, params):
+                entry_id = int(row["id"])
+                if (type_key, entry_id) in exclude_set:
+                    continue
+                candidates.append(
+                    {
+                        "type_key": type_key,
+                        "id": entry_id,
+                        "label": meta["label"],
+                        "title": row[meta["title_field"]],
+                        "body": row[meta["body_field"]],
+                        "example": row["example"] if "example" in row.keys() else "",
+                        "cefr_level": row["cefr_level"],
+                        "level": row["level"],
+                        "practice_count": row["practice_count"],
+                    }
+                )
+
+    if not candidates:
+        return None
+    return random.choice(candidates)
+
+
 def progress_stats() -> dict[str, Any]:
     counts: dict[str, int] = {}
     total = 0
@@ -216,6 +355,9 @@ def progress_stats() -> dict[str, Any]:
     }
 
 
-def empty_form(type_key: str) -> dict[str, str]:
+def empty_form(type_key: str) -> dict[str, Any]:
     type_key = ensure_type(type_key)
-    return {field: "" for field in TYPES[type_key]["fields"]} | {"cefr_level": "B1"}
+    return {field: "" for field in TYPES[type_key]["fields"]} | {
+        "cefr_level": "B1",
+        "level": DEFAULT_COURSE_LEVEL,
+    }

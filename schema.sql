@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS new_words (
   cefr_level TEXT NOT NULL DEFAULT 'B1' CHECK (
     cefr_level IN ('A1', 'A2', 'B1', 'B2')
   ),
+  level INTEGER NOT NULL DEFAULT 13,
+  practice_count INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
@@ -22,6 +24,8 @@ CREATE TABLE IF NOT EXISTS verb_phrases (
   cefr_level TEXT NOT NULL DEFAULT 'B1' CHECK (
     cefr_level IN ('A1', 'A2', 'B1', 'B2')
   ),
+  level INTEGER NOT NULL DEFAULT 13,
+  practice_count INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
@@ -35,6 +39,8 @@ CREATE TABLE IF NOT EXISTS sentence_structures (
   cefr_level TEXT NOT NULL DEFAULT 'B1' CHECK (
     cefr_level IN ('A1', 'A2', 'B1', 'B2')
   ),
+  level INTEGER NOT NULL DEFAULT 13,
+  practice_count INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
@@ -47,6 +53,7 @@ CREATE TABLE IF NOT EXISTS dialogs (
   cefr_level TEXT NOT NULL DEFAULT 'B1' CHECK (
     cefr_level IN ('A1', 'A2', 'B1', 'B2')
   ),
+  level INTEGER NOT NULL DEFAULT 13,
   created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
@@ -59,6 +66,7 @@ CREATE TABLE IF NOT EXISTS paragraphs (
   cefr_level TEXT NOT NULL DEFAULT 'B1' CHECK (
     cefr_level IN ('A1', 'A2', 'B1', 'B2')
   ),
+  level INTEGER NOT NULL DEFAULT 13,
   created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
 );

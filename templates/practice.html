@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Practice · English to B2{% endblock %}
+
+{% block content %}
+<section class="hero practice-hero">
+  <div>
+    <p class="eyebrow">Practice</p>
+    <h1>Write sentences</h1>
+    <p class="lede">Filter, click + to add a random new word / verb phrase / sentence structure, write a sentence for each, then submit once.</p>
+  </div>
+</section>
+
+<form class="filters practice-filters" method="get" action="{{ url_for('practice') }}">
+  <label>
+    <span>Course level</span>
+    <select name="level">
+      <option value="">All</option>
+      {% for lvl in course_levels %}
+        <option value="{{ lvl }}" {% if level == lvl|string %}selected{% endif %}>{{ lvl }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>
+    <span>CEFR</span>
+    <select name="cefr_level">
+      <option value="">All</option>
+      {% for lvl in levels %}
+        <option value="{{ lvl }}" {% if cefr_level == lvl %}selected{% endif %}>{{ lvl }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button type="submit">Apply filters</button>
+</form>
+
+<form method="post" class="practice-board">
+  <input type="hidden" name="level" value="{{ level }}">
+  <input type="hidden" name="cefr_level" value="{{ cefr_level }}">
+
+  <div class="practice-toolbar">
+    <button class="btn" type="submit" name="action" value="add">+</button>
+    <button class="btn btn-ghost" type="submit" name="action" value="clear">Clear list</button>
+    <button class="btn btn-primary" type="submit" name="action" value="submit">Submit</button>
+  </div>
+
+  {% if cards %}
+    <section class="practice-cards" aria-label="Practice prompts">
+      {% for card in cards %}
+        <article class="practice-card {% if card.result %}{% if card.result.correct %}is-correct{% elif card.result.incomplete %}is-incomplete{% else %}is-wrong{% endif %}{% endif %}">
+          <header>
+            <div>
+              <p class="practice-type">{{ card.label }}</p>
+              <h2>{{ card.title }}</h2>
+            </div>
+            <div class="tags">
+              <span class="tag">L{{ card.level }}</span>
+              <span class="tag level-{{ card.cefr_level }}">{{ card.cefr_level }}</span>
+              <span class="tag">Practiced {{ card.result.practice_count if card.result and card.result.practice_count is defined else card.practice_count }}×</span>
+            </div>
+          </header>
+          <p class="meaning">{{ card.body }}</p>
+          {% if card.example %}
+            <p class="example"><span>Example</span> {{ card.example }}</p>
+          {% endif %}
+
+          <label>
+            <span>Your sentence</span>
+            <textarea name="sentence_{{ card.uid }}" rows="3" placeholder="Write one sentence using this knowledge…">{{ card.sentence }}</textarea>
+          </label>
+
+          {% if card.result %}
+            <div class="practice-result" role="status">
+              {% if card.result.correct %}
+                <p class="result-status ok">Correct</p>
+                <p>{{ card.result.feedback }}</p>
+              {% else %}
+                <p class="result-status bad">{% if card.result.incomplete %}Incomplete{% else %}Not correct{% endif %}</p>
+                <p>{{ card.result.feedback }}</p>
+                {% if card.result.corrected_sentence and not card.result.incomplete %}
+                  <p class="corrected"><span>Corrected</span> {{ card.result.corrected_sentence }}</p>
+                {% endif %}
+              {% endif %}
+            </div>
+          {% endif %}
+        </article>
+      {% endfor %}
+    </section>
+  {% else %}
+    <section class="empty">
+      <h2>No prompts yet</h2>
+      <p>Set filters if you want, then click + to add a random item.</p>
+    </section>
+  {% endif %}
+</form>
+{% endblock %}

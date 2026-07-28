@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Import notes · English to B2{% endblock %}
+
+{% block content %}
+<section class="form-shell">
+  <h1>Import notes</h1>
+  <p class="lede">Paste your study notes. Gemini will classify them into the five tabs and save them with the Level you choose.</p>
+
+  <form method="post" class="entry-form">
+    <label>
+      <span>Study notes</span>
+      <textarea name="notes" rows="16" required placeholder="Paste vocabulary, phrases, grammar patterns, dialogs, paragraphs…">{{ notes_text }}</textarea>
+    </label>
+
+    <div class="form-row">
+      <label>
+        <span>Course level</span>
+        <input type="number" name="level" min="1" value="{{ level }}" required>
+      </label>
+      <label>
+        <span>Default CEFR (if unclear in notes)</span>
+        <select name="cefr_level">
+          {% for lvl in levels %}
+            <option value="{{ lvl }}" {% if cefr_level == lvl %}selected{% endif %}>{{ lvl }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+
+    <div class="form-actions">
+      <a href="{{ url_for('index') }}">Cancel</a>
+      <button class="btn" type="submit">Process with Gemini</button>
+    </div>
+  </form>
+
+  {% if summary %}
+    <aside class="import-summary" aria-label="Import summary">
+      <h2>Saved this import</h2>
+      <ul>
+        {% for key in type_order %}
+          <li>
+            <span>{{ types[key].label }}</span>
+            <strong>{{ summary[key] }}</strong>
+          </li>
+        {% endfor %}
+      </ul>
+    </aside>
+  {% endif %}
+</section>
+{% endblock %}

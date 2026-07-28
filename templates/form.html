@@ -85,14 +85,20 @@
       <textarea name="notes" rows="2" placeholder="Tips, mistakes to avoid, translation…">{{ entry.notes }}</textarea>
     </label>
 
-    <label>
-      <span>CEFR level</span>
-      <select name="cefr_level">
-        {% for level in levels %}
-          <option value="{{ level }}" {% if entry.cefr_level == level %}selected{% endif %}>{{ level }}</option>
-        {% endfor %}
-      </select>
-    </label>
+    <div class="form-row">
+      <label>
+        <span>Course level</span>
+        <input type="number" name="level" min="1" required value="{{ entry.level if entry.level is defined and entry.level != '' else 13 }}">
+      </label>
+      <label>
+        <span>CEFR level</span>
+        <select name="cefr_level">
+          {% for level in levels %}
+            <option value="{{ level }}" {% if entry.cefr_level == level %}selected{% endif %}>{{ level }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
 
     <div class="form-actions">
       <a href="{{ url_for('index', type=type_key) }}">Cancel</a>

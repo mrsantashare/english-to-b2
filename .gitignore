@@ -2,6 +2,7 @@
 __pycache__/
 *.pyc
 .DS_Store
+.env
 
 # Keep the SQLite knowledge base in git; ignore other local data files.
 data/*

@@ -20,6 +20,8 @@
         </span>
       </a>
       <nav class="nav">
+        <a href="{{ url_for('import_notes') }}">Import</a>
+        <a href="{{ url_for('practice') }}">Practice</a>
         <a class="btn" href="{{ url_for('add', type=type_key if type_key is defined else 'new_words') }}">Add entry</a>
       </nav>
     </header>

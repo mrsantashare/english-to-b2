@@ -5,7 +5,7 @@
   <div>
     <p class="eyebrow">Path to B2</p>
     <h1>{{ meta.label }}</h1>
-    <p class="lede">Each tab is its own database. Paste study notes in chat and they will be sorted into the matching type.</p>
+    <p class="lede">Each tab is its own database. Use Import to paste study notes, or Practice to write sentences with random prompts.</p>
   </div>
   <aside class="stats" aria-label="Progress by type">
     <div class="stat-main">
@@ -42,11 +42,20 @@
     <input type="search" name="q" value="{{ q }}" placeholder="Search this tab…">
   </label>
   <label>
+    <span>Level</span>
+    <select name="level">
+      <option value="">All</option>
+      {% for lvl in course_levels %}
+        <option value="{{ lvl }}" {% if level == lvl|string %}selected{% endif %}>{{ lvl }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>
     <span>CEFR</span>
     <select name="cefr_level">
       <option value="">All</option>
-      {% for level in levels %}
-        <option value="{{ level }}" {% if cefr_level == level %}selected{% endif %}>{{ level }}</option>
+      {% for lvl in levels %}
+        <option value="{{ lvl }}" {% if cefr_level == lvl %}selected{% endif %}>{{ lvl }}</option>
       {% endfor %}
     </select>
   </label>
@@ -61,8 +70,12 @@
         <header>
           <h2>{{ entry[meta.title_field] }}</h2>
           <div class="tags">
+            <span class="tag">L{{ entry.level }}</span>
             <span class="tag level-{{ entry.cefr_level }}">{{ entry.cefr_level }}</span>
             <span class="tag">{{ meta.label }}</span>
+            {% if meta.has_practice %}
+              <span class="tag">Practiced {{ entry.practice_count }}×</span>
+            {% endif %}
           </div>
         </header>
 
@@ -94,7 +107,7 @@
 {% else %}
   <section class="empty">
     <h2>No {{ meta.label|lower }} yet</h2>
-    <p>This tab is empty. Add an entry here, or paste study notes in chat to fill the right tables.</p>
+    <p>This tab is empty. Add an entry here, or import study notes to fill the right tables.</p>
     <a class="btn" href="{{ url_for('add', type=type_key) }}">Add {{ meta.singular }}</a>
   </section>
 {% endif %}
