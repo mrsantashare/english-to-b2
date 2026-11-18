@@ -68,12 +68,14 @@ def parse_notes(
     text: str,
     *,
     level: int = db.DEFAULT_COURSE_LEVEL,
+    unit: int = db.DEFAULT_UNIT,
     cefr_level: str = "B1",
 ) -> dict[str, list[dict[str, Any]]]:
     """Classify study notes into the five learning types."""
     if cefr_level not in db.CEFR_LEVELS:
         cefr_level = "B1"
     level = db.parse_level(level)
+    unit = db.parse_unit(unit)
 
     prompt = f"""You are helping a learner build an English knowledge base toward CEFR B2.
 
@@ -96,6 +98,7 @@ Rules:
 - For paragraphs, put the full paragraph in content.
 
 Default course level for this import (do not put in JSON; the app will attach it): {level}
+Default unit for this import (do not put in JSON; the app will attach it): {unit}
 
 NOTES:
 {text}
@@ -113,8 +116,13 @@ NOTES:
         for item in items:
             if not isinstance(item, dict):
                 continue
-            payload = {field: str(item.get(field, "") or "").strip() for field in meta["fields"] if field != "level"}
+            payload = {
+                field: str(item.get(field, "") or "").strip()
+                for field in meta["fields"]
+                if field not in ("level", "unit")
+            }
             payload["level"] = level
+            payload["unit"] = unit
             if payload.get("cefr_level") not in db.CEFR_LEVELS:
                 payload["cefr_level"] = cefr_level
             if any(not payload.get(field) for field in meta["required"]):

@@ -51,6 +51,15 @@
     </select>
   </label>
   <label>
+    <span>Unit</span>
+    <select name="unit">
+      <option value="">All</option>
+      {% for u in course_units %}
+        <option value="{{ u }}" {% if unit == u|string %}selected{% endif %}>{{ u }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>
     <span>CEFR</span>
     <select name="cefr_level">
       <option value="">All</option>
@@ -71,6 +80,7 @@
           <h2>{{ entry[meta.title_field] }}</h2>
           <div class="tags">
             <span class="tag">L{{ entry.level }}</span>
+            <span class="tag">U{{ entry.unit }}</span>
             <span class="tag level-{{ entry.cefr_level }}">{{ entry.cefr_level }}</span>
             <span class="tag">{{ meta.label }}</span>
             {% if meta.has_practice %}

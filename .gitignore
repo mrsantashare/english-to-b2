@@ -7,3 +7,8 @@ __pycache__/
 # Keep the SQLite knowledge base in git; ignore other local data files.
 data/*
 !data/english_to_b2.db
+
+# Ignore local video assets and scratch files
+VIDEO/
+Level13-*
+

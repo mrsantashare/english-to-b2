@@ -5,7 +5,7 @@
 {% block content %}
 <section class="form-shell">
   <h1>Import notes</h1>
-  <p class="lede">Paste your study notes. Gemini will classify them into the five tabs and save them with the Level you choose.</p>
+  <p class="lede">Paste your study notes. Gemini will classify them into the five tabs and save them with the Level and Unit you choose.</p>
 
   <form method="post" class="entry-form">
     <label>
@@ -17,6 +17,10 @@
       <label>
         <span>Course level</span>
         <input type="number" name="level" min="1" value="{{ level }}" required>
+      </label>
+      <label>
+        <span>Unit</span>
+        <input type="number" name="unit" min="1" value="{{ unit }}" required>
       </label>
       <label>
         <span>Default CEFR (if unclear in notes)</span>

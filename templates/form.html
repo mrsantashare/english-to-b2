@@ -91,6 +91,10 @@
         <input type="number" name="level" min="1" required value="{{ entry.level if entry.level is defined and entry.level != '' else 13 }}">
       </label>
       <label>
+        <span>Unit</span>
+        <input type="number" name="unit" min="1" required value="{{ entry.unit if entry.unit is defined and entry.unit != '' else 50 }}">
+      </label>
+      <label>
         <span>CEFR level</span>
         <select name="cefr_level">
           {% for level in levels %}

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from urllib.parse import urlencode
+
 from flask import Flask, flash, redirect, render_template, request, session, url_for
 
 import ai
@@ -16,8 +18,13 @@ def ensure_db() -> None:
 
 def _form_payload(type_key: str) -> dict:
     meta = db.TYPES[type_key]
-    payload = {field: request.form.get(field, "").strip() for field in meta["fields"] if field != "level"}
+    payload = {
+        field: request.form.get(field, "").strip()
+        for field in meta["fields"]
+        if field not in ("level", "unit")
+    }
     payload["level"] = db.parse_level(request.form.get("level"))
+    payload["unit"] = db.parse_unit(request.form.get("unit"))
     if payload.get("cefr_level") not in db.CEFR_LEVELS:
         payload["cefr_level"] = "B1"
     return payload
@@ -31,6 +38,10 @@ def _nav_levels() -> list[int]:
     return db.distinct_levels() or [db.DEFAULT_COURSE_LEVEL]
 
 
+def _nav_units() -> list[int]:
+    return db.distinct_units() or [db.DEFAULT_UNIT]
+
+
 def _practice_session_list() -> list[dict]:
     items = session.get("practice_items")
     if not isinstance(items, list):
@@ -39,14 +50,44 @@ def _practice_session_list() -> list[dict]:
     return items
 
 
-def _set_practice_filters() -> tuple[str, str]:
+def _set_practice_filters() -> tuple[str, str, str, list[str]]:
     level = request.values.get("level", session.get("practice_level", "")).strip()
+    unit = request.values.get("unit", session.get("practice_unit", "")).strip()
     cefr_level = request.values.get("cefr_level", session.get("practice_cefr", "")).strip()
     if cefr_level and cefr_level not in db.CEFR_LEVELS:
         cefr_level = ""
+
+    raw_types = request.values.getlist("practice_type")
+    if not raw_types and "practice_type" not in request.values:
+        # POST board / first visit: keep session selection (default = all).
+        stored = session.get("practice_types")
+        if isinstance(stored, list) and stored:
+            raw_types = stored
+        else:
+            raw_types = list(db.PRACTICE_TYPES)
+    practice_types = [t for t in raw_types if t in db.PRACTICE_TYPES]
+    if not practice_types:
+        practice_types = list(db.PRACTICE_TYPES)
+
     session["practice_level"] = level
+    session["practice_unit"] = unit
     session["practice_cefr"] = cefr_level
-    return level, cefr_level
+    session["practice_types"] = practice_types
+    return level, unit, cefr_level, practice_types
+
+
+def _practice_redirect_url(level: str, unit: str, cefr_level: str, practice_types: list[str]) -> str:
+    params: list[tuple[str, str]] = []
+    if level:
+        params.append(("level", level))
+    if unit:
+        params.append(("unit", unit))
+    if cefr_level:
+        params.append(("cefr_level", cefr_level))
+    for type_key in practice_types:
+        params.append(("practice_type", type_key))
+    base = url_for("practice")
+    return f"{base}?{urlencode(params)}" if params else base
 
 
 def _hydrate_practice_cards(items: list[dict], results: dict[str, dict] | None = None) -> list[dict]:
@@ -73,6 +114,7 @@ def _hydrate_practice_cards(items: list[dict], results: dict[str, dict] | None =
             "example": entry["example"] if "example" in entry.keys() else "",
             "cefr_level": entry["cefr_level"],
             "level": entry["level"],
+            "unit": entry["unit"],
             "practice_count": entry["practice_count"] if "practice_count" in entry.keys() else 0,
             "sentence": item.get("sentence", ""),
             "result": results.get(uid),
@@ -87,8 +129,9 @@ def index():
     q = request.args.get("q", "").strip()
     cefr_level = request.args.get("cefr_level", "").strip()
     level = request.args.get("level", "").strip()
+    unit = request.args.get("unit", "").strip()
 
-    entries = db.list_entries(type_key, q=q, cefr_level=cefr_level, level=level)
+    entries = db.list_entries(type_key, q=q, cefr_level=cefr_level, level=level, unit=unit)
     stats = db.progress_stats()
     meta = db.TYPES[type_key]
 
@@ -103,8 +146,10 @@ def index():
         q=q,
         cefr_level=cefr_level,
         level=level,
+        unit=unit,
         levels=db.CEFR_LEVELS,
         course_levels=_nav_levels(),
+        course_units=_nav_units(),
     )
 
 
@@ -197,6 +242,7 @@ def delete(type_key: str, entry_id: int):
 @app.route("/import", methods=["GET", "POST"])
 def import_notes():
     default_level = db.DEFAULT_COURSE_LEVEL
+    default_unit = db.DEFAULT_UNIT
     default_cefr = "B1"
     notes_text = ""
     summary = None
@@ -204,17 +250,21 @@ def import_notes():
     if request.method == "POST":
         notes_text = request.form.get("notes", "").strip()
         level = db.parse_level(request.form.get("level"), default_level)
+        unit = db.parse_unit(request.form.get("unit"), default_unit)
         cefr_level = request.form.get("cefr_level", default_cefr).strip()
         if cefr_level not in db.CEFR_LEVELS:
             cefr_level = default_cefr
         default_level = level
+        default_unit = unit
         default_cefr = cefr_level
 
         if not notes_text:
             flash("Paste your study notes first.", "error")
         else:
             try:
-                classified = ai.parse_notes(notes_text, level=level, cefr_level=cefr_level)
+                classified = ai.parse_notes(
+                    notes_text, level=level, unit=unit, cefr_level=cefr_level
+                )
                 summary = {key: 0 for key in db.TYPE_ORDER}
                 total = 0
                 for type_key, items in classified.items():
@@ -235,6 +285,7 @@ def import_notes():
         "import.html",
         notes_text=notes_text,
         level=default_level,
+        unit=default_unit,
         cefr_level=default_cefr,
         levels=db.CEFR_LEVELS,
         summary=summary,
@@ -245,11 +296,14 @@ def import_notes():
 
 @app.route("/practice", methods=["GET", "POST"])
 def practice():
-    level, cefr_level = _set_practice_filters()
+    level, unit, cefr_level, practice_types = _set_practice_filters()
     items = _practice_session_list()
     results_map: dict[str, dict] = session.get("practice_results") or {}
     if not isinstance(results_map, dict):
         results_map = {}
+
+    def practice_redirect():
+        return redirect(_practice_redirect_url(level, unit, cefr_level, practice_types))
 
     if request.method == "POST":
         action = request.form.get("action", "").strip()
@@ -258,7 +312,7 @@ def practice():
             session["practice_items"] = []
             session["practice_results"] = {}
             flash("Practice list cleared.", "ok")
-            return redirect(url_for("practice", level=level or None, cefr_level=cefr_level or None))
+            return practice_redirect()
 
         if action == "add":
             # Preserve any typed sentences before adding another card.
@@ -276,7 +330,9 @@ def practice():
             exclude = [(p["type_key"], int(p["id"])) for p in preserved]
             picked = db.random_practice_item(
                 level=level,
+                unit=unit,
                 cefr_level=cefr_level,
+                types=practice_types,
                 exclude=exclude,
             )
             if picked is None:
@@ -292,7 +348,7 @@ def practice():
                 )
                 session["practice_items"] = preserved
                 session["practice_results"] = {}
-            return redirect(url_for("practice", level=level or None, cefr_level=cefr_level or None))
+            return practice_redirect()
 
         if action == "submit":
             to_grade: list[dict] = []
@@ -372,16 +428,21 @@ def practice():
                 except ai.AiError as exc:
                     flash(str(exc), "error")
 
-            return redirect(url_for("practice", level=level or None, cefr_level=cefr_level or None))
+            return practice_redirect()
 
     cards = _hydrate_practice_cards(items, results_map)
     return render_template(
         "practice.html",
         cards=cards,
         level=level,
+        unit=unit,
         cefr_level=cefr_level,
+        practice_types=practice_types,
+        practice_type_keys=db.PRACTICE_TYPES,
+        types=db.TYPES,
         levels=db.CEFR_LEVELS,
         course_levels=_nav_levels(),
+        course_units=_nav_units(),
     )
 
 

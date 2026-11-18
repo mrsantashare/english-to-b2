@@ -7,7 +7,7 @@
   <div>
     <p class="eyebrow">Practice</p>
     <h1>Write sentences</h1>
-    <p class="lede">Filter, click + to add a random new word / verb phrase / sentence structure, write a sentence for each, then submit once.</p>
+    <p class="lede">Filter by type, level, and unit; click + to add a random prompt; write a sentence for each; then submit once.</p>
   </div>
 </section>
 
@@ -22,6 +22,15 @@
     </select>
   </label>
   <label>
+    <span>Unit</span>
+    <select name="unit">
+      <option value="">All</option>
+      {% for u in course_units %}
+        <option value="{{ u }}" {% if unit == u|string %}selected{% endif %}>{{ u }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>
     <span>CEFR</span>
     <select name="cefr_level">
       <option value="">All</option>
@@ -30,12 +39,34 @@
       {% endfor %}
     </select>
   </label>
+
+  <fieldset class="type-filters">
+    <legend>Type</legend>
+    <div class="type-filter-options">
+      {% for key in practice_type_keys %}
+        <label class="check">
+          <input
+            type="checkbox"
+            name="practice_type"
+            value="{{ key }}"
+            {% if key in practice_types %}checked{% endif %}
+          >
+          <span>{{ types[key].label }}</span>
+        </label>
+      {% endfor %}
+    </div>
+  </fieldset>
+
   <button type="submit">Apply filters</button>
 </form>
 
 <form method="post" class="practice-board">
   <input type="hidden" name="level" value="{{ level }}">
+  <input type="hidden" name="unit" value="{{ unit }}">
   <input type="hidden" name="cefr_level" value="{{ cefr_level }}">
+  {% for key in practice_types %}
+    <input type="hidden" name="practice_type" value="{{ key }}">
+  {% endfor %}
 
   <div class="practice-toolbar">
     <button class="btn" type="submit" name="action" value="add">+</button>
@@ -54,6 +85,7 @@
             </div>
             <div class="tags">
               <span class="tag">L{{ card.level }}</span>
+              <span class="tag">U{{ card.unit }}</span>
               <span class="tag level-{{ card.cefr_level }}">{{ card.cefr_level }}</span>
               <span class="tag">Practiced {{ card.result.practice_count if card.result and card.result.practice_count is defined else card.practice_count }}×</span>
             </div>

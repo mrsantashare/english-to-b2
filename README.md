@@ -12,7 +12,7 @@ Five tabs — each backed by its own SQLite table:
 | Dialog | `dialogs` | Short conversations |
 | Paragraph | `paragraphs` | Longer writing samples |
 
-Every entry has a numeric **course Level** (existing data defaults to **13**) plus CEFR (`A1`–`B2`). New words, verb phrases, and sentence structures also track **practice_count**.
+Every entry has a numeric **course Level** (existing data defaults to **13**), a **Unit** (defaults to **50**), plus CEFR (`A1`–`B2`). New words, verb phrases, and sentence structures also track **practice_count**.
 
 ## Run
 
@@ -43,8 +43,8 @@ Optional: `GEMINI_MODEL=gemini-flash-latest` (default).
 
 ## Import notes
 
-Open **Import**, paste study notes, choose Level / default CEFR, then **Process with Gemini**. Entries are classified into the five tables.
+Open **Import**, paste study notes, choose Level / Unit / default CEFR, then **Process with Gemini**. Entries are classified into the five tables.
 
 ## Practice
 
-Open **Practice**, filter by Level/CEFR, click **+** (as many times as you like) to add a random new word / verb phrase / sentence structure, write a sentence for each, then **Submit**. Correct answers increment `practice_count`; wrong answers show feedback and a corrected sentence.
+Open **Practice**, filter by Level/Unit/CEFR, click **+** (as many times as you like) to add a random new word / verb phrase / sentence structure, write a sentence for each, then **Submit**. Correct answers increment `practice_count`; wrong answers show feedback and a corrected sentence.
